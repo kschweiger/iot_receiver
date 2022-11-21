@@ -1,0 +1,29 @@
+tables=["senders"]
+
+[db]
+database="Development"
+port=5432
+prefix="postgresql+psycopg2"
+schema="iot_receiver"
+
+[table_settings]
+mandatory_columns = ["ctype"]
+optional_columns = ["is_primary", "is_unique", "is_nullable", "default"]
+auto_fill_ctypes = ["SERIAL"]
+[table_settings.key_types]
+    ctype="str"
+    is_primary="bool"
+    is_unique="bool"
+    is_nullable="bool"
+    default="any"
+
+
+[senders]
+    name="senders"
+    [senders.id]
+        ctype="SERIAL"
+        is_primary=true
+    [senders.sender_name]
+        ctype="VARCHAR(50)"
+    [senders.hashed_key]
+        ctype="TEXT"

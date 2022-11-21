@@ -1,0 +1,58 @@
+[tool.poetry]
+name = "iot-data-receiver"
+version = "0.1.0"
+description = ""
+authors = ["Korbinian Schweiger <korbinian.schweiger@gmail.com>"]
+readme = "README.md"
+packages = [{include = "iot_data_receiver"}]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+fastapi = "^0.86.0"
+uvicorn = "^0.19.0"
+data_organizer = { git = "https://github.com/kschweiger/data_organizer", tag = "1.2.0" }
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+dynaconf = "^3.1.11"
+rich = "^12.6.0"
+pypika = "^0.48.9"
+
+[tool.poetry.scripts]
+create_sender = 'iot_data_receiver.cli_tools:create_sender'
+
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.2.0"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+black = "^22.10.0"
+mypy = "^0.982"
+pre-commit = "^2.20.0"
+ipython = "^8.6.0"
+flake8-pyproject = "^1.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203","E266","E402","PT012"]
+# flake8-pytest-style
+# PT001:
+pytest-fixture-no-parentheses = true
+# PT006:
+pytest-parametrize-names-type = "tuple"
+# PT007:
+pytest-parametrize-values-type = "list"
+pytest-parametrize-values-row-type = "tuple"
+# PT023:
+pytest-mark-no-parentheses = true
