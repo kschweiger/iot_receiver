@@ -1,4 +1,6 @@
+import json
 import logging
+from typing import Tuple
 
 from data_organizer.config import OrganizerConfig
 from data_organizer.db.connection import DatabaseConnection
@@ -8,6 +10,7 @@ from fastapi.openapi.models import APIKey
 from fastapi.security import APIKeyHeader
 from passlib.context import CryptContext
 from pypika import Table
+from sqlalchemy import text
 from starlette.status import (
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
@@ -16,6 +19,7 @@ from starlette.status import (
 
 from iot_data_receiver.endpoints import Endpoint
 from iot_data_receiver.model import EnvironmentInput, RegisterInput
+from iot_data_receiver.utils import get_table_name
 
 FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
@@ -33,7 +37,7 @@ config = OrganizerConfig(
 )
 
 
-def get_db():
+def get_db() -> DatabaseConnection:
     db = DatabaseConnection(**config.settings.db.to_dict(), name="IoTReceiver")
     try:
         yield db
@@ -48,14 +52,16 @@ def verify_api_key(plain_api_key, hashed_api_key):
 
 async def get_api_key(
     api_key_header: str = Security(api_key_header), db=Depends(get_db)
-):
+) -> Tuple[str, str, int]:
     if api_key_header is None:
         raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="No API Key sent")
 
     senders = Table("senders")
     try:
-        all_keys = db.query(
-            db.pypika_query.from_(senders).select(senders.hashed_key).get_sql()
+        sender_and_keys = db.query(
+            db.pypika_query.from_(senders)
+            .select(senders.hashed_key, senders.sender_name, senders.id)
+            .get_sql()
         )
     except QueryReturnedNoData:
         raise HTTPException(
@@ -63,15 +69,13 @@ async def get_api_key(
             detail="Internal database could not be reached",
         )
 
-    all_keys = [k[0] for k in all_keys]
-    if any(
-        verify_api_key(api_key_header, hashed_api_key) for hashed_api_key in all_keys
-    ):
-        return api_key_header
-    else:
-        raise HTTPException(
-            status_code=HTTP_403_FORBIDDEN, detail="Could not validate API KEY"
-        )
+    for hashed_key, sender_name, sender_id in sender_and_keys:
+        if verify_api_key(api_key_header, hashed_key):
+            return api_key_header, sender_name, sender_id
+
+    raise HTTPException(
+        status_code=HTTP_403_FORBIDDEN, detail="Could not validate API KEY"
+    )
 
 
 @app.post("/environment")
@@ -84,7 +88,11 @@ async def environment(
 
 
 @app.post("/register")
-async def register(register: RegisterInput, api_key: APIKey = Depends(get_api_key)):
+async def register(
+    register_input: RegisterInput,
+    sender: Tuple[str, str, int] = Depends(get_api_key),
+    db: DatabaseConnection = Depends(get_db),
+):
     """
     Register a certain endpoint (passed inside the request body) with the passed fileds.
     Valid endpoints are children of the EndpointDescription class.
@@ -92,19 +100,75 @@ async def register(register: RegisterInput, api_key: APIKey = Depends(get_api_ke
     to the passed endpoint. Additionally, the corresponding table in the database will
     be created
 
-    :param register: Request Model containing the endpoint and the fields send from this
-                     api key to the endpoint
-    :param api_key: API Key for which the endpoint will be registered
+    :param register_input: Request Model containing the endpoint and the fields send
+                           from this api key to the endpoint
+    :param sender: API Key for which the endpoint will be registered
+    :param db: DatabaseConnection for database interaction
     """
     try:
-        Endpoint(register.endpoint)
+        endpoint = Endpoint(register_input.endpoint)
     except ValueError:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
-            detail=f"Invalid endpoint {register.endpoint} was passed",
+            detail=f"Invalid endpoint {register_input.endpoint} was passed",
         )
 
-    return {"message": "Key successfully registered"}
+    key, sender_name, sender_id = sender
+
+    ers = Table("endpoint_request_subsets")
+    try:
+        db.query(
+            db.pypika_query.from_(ers).select("*").where(ers.id == sender_id).get_sql()
+        )
+    except QueryReturnedNoData:
+        pass
+    else:
+        return {"message": f"Endpoint already registered for user {sender_name}"}
+
+    logger.debug(
+        "Found sender name / id  - %s / %s -  for the passed key",
+        sender_name,
+        sender_id,
+    )
+
+    endpoint_description_cls = endpoint.get_description_class()
+    endpoint_description = endpoint_description_cls()
+
+    table_settings = endpoint_description.generate_table_structure(
+        get_table_name(sender_name, register_input.endpoint), register_input.fields
+    )
+
+    db.create_table_from_table_info([table_settings])
+
+    with db.engine.connect() as connection:
+        query = (
+            db.pypika_query.into(Table("endpoint_request_subsets"))
+            .insert(
+                sender_id,
+                register_input.endpoint,
+                get_table_name(sender_name, register_input.endpoint),
+                json.dumps(
+                    {
+                        "fields": endpoint_description.get_final_fields(
+                            register_input.fields
+                        )
+                    }
+                ),
+            )
+            .get_sql()
+        )
+        logger.debug(query)
+        connection.execute(text(query))
+        connection.commit()
+
+    logger.info("Added id / endpoint to **endpoint_request_subsets** table")
+
+    response_msg = (
+        f"Successfully registered key of user {sender_name} "
+        f"for endpoint {register_input.endpoint}"
+    )
+
+    return {"message": response_msg}
 
 
 @app.get("/health")

@@ -16,6 +16,7 @@ passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 dynaconf = "^3.1.11"
 rich = "^12.6.0"
 pypika = "^0.48.9"
+sqlalchemy = "^1.4.44"
 
 [tool.poetry.scripts]
 create_sender = 'iot_data_receiver.cli_tools:create_sender'
@@ -25,6 +26,7 @@ optional = true
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.2.0"
+pytest-mock = "^3.10.0"
 
 [tool.poetry.group.dev]
 optional = true
