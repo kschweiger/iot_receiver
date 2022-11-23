@@ -6,7 +6,6 @@ from data_organizer.config import OrganizerConfig
 from data_organizer.db.connection import DatabaseConnection
 from data_organizer.db.exceptions import QueryReturnedNoData
 from fastapi import Depends, FastAPI, HTTPException, Security
-from fastapi.openapi.models import APIKey
 from fastapi.security import APIKeyHeader
 from passlib.context import CryptContext
 from pypika import Table
@@ -80,8 +79,47 @@ async def get_api_key(
 
 @app.post("/environment")
 async def environment(
-    environment_input: EnvironmentInput, api_key: APIKey = Depends(get_api_key)
+    environment_input: EnvironmentInput,
+    sender: Tuple[str, str, int] = Depends(get_api_key),
+    db: DatabaseConnection = Depends(get_db),
 ):
+    endpoint = Endpoint.ENVIRONMENT
+    key, sender_name, sender_id = sender
+
+    ers = Table("endpoint_request_subsets")
+    try:
+        data = db.query(
+            db.pypika_query.from_(ers)
+            .select(ers.table, ers.subset)
+            .where(ers.id == sender_id)
+            .where(ers.endpoint == endpoint.value)
+            .get_sql()
+        )
+    except QueryReturnedNoData:
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST, detail="Endpoint not registered"
+        )
+
+    table, subset = data[0]
+    fields = subset["fields"]
+
+    endpoint_description_cls = endpoint.get_description_class()
+    endpoint_description = endpoint_description_cls()
+
+    table_settings = endpoint_description.generate_table_structure(
+        get_table_name(sender_name, endpoint.value), fields
+    )
+
+    insert_data = []
+    environment_input_dict = environment_input.dict()
+    for i in range(len(environment_input.timestamp)):
+        this_row = []
+        for field in fields:
+            this_row.append(environment_input_dict[field][i])
+        insert_data.append(this_row)
+
+    db.insert(table_settings, insert_data)
+
     # Load subset defined for the key/endpoint combination
     # Check if the table is present. If not. Create the table
     return {"message": "Received environment data"}
@@ -118,7 +156,11 @@ async def register(
     ers = Table("endpoint_request_subsets")
     try:
         db.query(
-            db.pypika_query.from_(ers).select("*").where(ers.id == sender_id).get_sql()
+            db.pypika_query.from_(ers)
+            .select("*")
+            .where(ers.id == sender_id)
+            .where(ers.endpoint == register_input.endpoint)
+            .get_sql()
         )
     except QueryReturnedNoData:
         pass
