@@ -31,7 +31,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 api_key_header = APIKeyHeader(name="access_token", auto_error=False)
 
 config = OrganizerConfig(
-    name="IoTKeyCreator",
+    name="IoTReceiver",
     config_dir_base="config/",
 )
 

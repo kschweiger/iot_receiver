@@ -17,6 +17,7 @@ dynaconf = "^3.1.11"
 rich = "^12.6.0"
 pypika = "^0.48.9"
 sqlalchemy = "^1.4.44"
+requests = "^2.28.1"
 
 [tool.poetry.scripts]
 create_sender = 'iot_data_receiver.cli_tools:create_sender'
@@ -27,6 +28,7 @@ optional = true
 [tool.poetry.group.test.dependencies]
 pytest = "^7.2.0"
 pytest-mock = "^3.10.0"
+httpx = "^0.23.1"
 
 [tool.poetry.group.dev]
 optional = true
