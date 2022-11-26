@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "iot-data-receiver"
-version = "0.1.0"
+version = "1.0.0"
 description = ""
 authors = ["Korbinian Schweiger <korbinian.schweiger@gmail.com>"]
 readme = "README.md"
