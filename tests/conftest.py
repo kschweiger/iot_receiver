@@ -36,9 +36,7 @@ def setup_database(
                     "id" INT NOT NULL,
                     "endpoint" VARCHAR(50) NOT NULL,
                     "table" TEXT NOT NULL,
-                    "subset" JSON NOT NULL,
-                    FOREIGN KEY("id")
-                    REFERENCES {settings_.db.schema}.senders("id")
+                    "subset" JSON NOT NULL
                 )
                 """
             )

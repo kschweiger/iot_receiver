@@ -1,12 +1,48 @@
+from copy import deepcopy
 from datetime import datetime
 
 import pytest
 from data_organizer.db.connection import DatabaseConnection
+from dynaconf import LazySettings
+from sqlalchemy import text
+
+import iot_data_receiver
 
 
 def test_health(test_session, client):
     response = client.get("/health")
     assert response.status_code == 200
+
+
+def test_health_invalid_conn(mocker, client):
+    settings_: LazySettings = deepcopy(iot_data_receiver.main.config.settings)
+
+    # Set the port to some random bs
+    settings_.db.port = "647824"
+
+    mocker.patch.object(iot_data_receiver.main.config, "settings", settings_)
+
+    response = client.get("/health")
+    assert response.status_code == 503
+
+
+@pytest.mark.parametrize(
+    "drop_tables",
+    [
+        ["senders", "endpoint_request_subsets"],
+        ["senders"],
+        ["endpoint_request_subsets"],
+    ],
+)
+def test_health_missing_tables(test_session, client, drop_tables):
+    _, db = test_session
+    with db.engine.connect() as connection:
+        for table in drop_tables:
+            connection.execute(text(f"DROP TABLE {db.schema}.{table};"))
+            connection.commit()
+
+    response = client.get("/health")
+    assert response.status_code == 500
 
 
 @pytest.mark.parametrize("header", [None, {"access_token": "boguskey"}])

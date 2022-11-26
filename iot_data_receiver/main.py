@@ -13,6 +13,7 @@ from sqlalchemy import text
 from starlette.status import (
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
+    HTTP_500_INTERNAL_SERVER_ERROR,
     HTTP_503_SERVICE_UNAVAILABLE,
 )
 
@@ -214,7 +215,7 @@ async def register(
 
 
 @app.get("/health")
-async def health():
+async def health(db: DatabaseConnection = Depends(get_db)):
     """
     API health check endpoint. Will check if all components are running:
     Checks implemented:
@@ -222,5 +223,37 @@ async def health():
     - Check if the requited tables are present
     """
     # Check if DB is reachable
-    # CHeck if all required tables are present
+    if not db.is_valid:
+        raise HTTPException(
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Connection to database could not be established",
+        )
+
+    # Check if all required tables are present
+    try:
+        tables = db.query_to_df(
+            text(
+                f"""
+                SELECT table_name FROM information_schema.tables
+                WHERE table_schema = '{db.schema}';
+                """
+            )
+        )
+    except QueryReturnedNoData:
+        raise HTTPException(
+            status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Not all required tables are present in the database",
+        )
+
+    if not all(
+        [
+            rt in tables.table_name.to_list()
+            for rt in ["senders", "endpoint_request_subsets"]
+        ]
+    ):
+        raise HTTPException(
+            status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Not all required tables are present in the database",
+        )
+
     return {"message": "All components up and running"}
