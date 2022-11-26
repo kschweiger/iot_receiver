@@ -62,7 +62,7 @@ def drop_schema(db: DatabaseConnection, schema: str):
 
 
 def mock_settings(mocker):
-    settings_ = deepcopy(iot_data_receiver.main.config.settings)
+    settings_: LazySettings = deepcopy(iot_data_receiver.main.config.settings)
 
     settings_.db.schema = "iot_receiver_test"
 

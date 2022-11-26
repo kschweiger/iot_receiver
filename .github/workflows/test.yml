@@ -1,0 +1,53 @@
+name: test
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: Development
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          # Maps tcp port 5432 on service container to the host
+          - 5432:5432
+    env:
+      PG_DEV_DB_USER: postgres
+      PG_DEV_DB_PASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+            pip install pipx
+            pipx install poetry==1.2.2
+            poetry install --with test
+      - name: Setup secrets
+        run: |
+            echo "settings"
+            cat config/settings.toml
+            touch config/.secrets.toml
+            echo "dynaconf_merge=true" >> config/.secrets.toml
+            echo "[db]" >> config/.secrets.toml
+            echo "user=\"$PG_DEV_DB_USER\"" >> config/.secrets.toml
+            echo "password=\"$PG_DEV_DB_PASSWORD\"" >> config/.secrets.toml
+            echo "host=\"localhost\"" >> config/.secrets.toml
+            echo ""
+            echo ".secrets"
+            cat config/.secrets.toml
+      - name: Test
+        run: |
+            source $(poetry env info --path)/bin/activate
+            python -m pytest -v --cov-report term-missing --cov iot_data_receiver tests
