@@ -17,7 +17,12 @@ console = Console()
     default="config",
     help="Path to the directory containign the configuration files",
 )
-def create_sender(name, config_base):
+@click.option(
+    "--schema",
+    default=None,
+    help="Overwrite the schema set in the config",
+)
+def create_sender(name, config_base, schema):
     exp_config_file_names = ["settings.toml", ".secrets.toml"]
     for config_file in exp_config_file_names:
         if not Path(f"{config_base}/{config_file}").is_file():
@@ -41,6 +46,10 @@ def create_sender(name, config_base):
         name="IoTKeyCreator",
         config_dir_base=config_base,
     )
+
+    if schema is not None:
+        config.settings.db.schema = schema
+
     with DatabaseConnection(**config.settings.db.to_dict(), name="IoTKeyCreator") as db:
         if not db.has_table(config.tables["senders"].name):
             console.print("Table [i]senders[/i] does not exit")

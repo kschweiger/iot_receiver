@@ -135,17 +135,43 @@ def test_environment_session_full(mocker):
 
 
 @pytest.fixture
-def test_registered_session(mocker):
+def test_environment_session_minimal(mocker):
     settings_ = mock_settings(mocker)
 
     token, hashed_token = generate_token(20)
 
-    db = DatabaseConnection(
-        **settings_.db.to_dict(), name="IoTReceiver_registered_test"
-    )
+    db = DatabaseConnection(**settings_.db.to_dict(), name="IoTReceiver_test")
     setup_database(db, settings_, hashed_token)
 
-    yield token
+    with db.engine.connect() as connection:
+        table_name = "test_name_environment"
+        connection.execute(
+            text(
+                """
+                INSERT INTO %s.endpoint_request_subsets
+                VALUES (
+                    1,
+                    'environment',
+                    '%s',
+                    '{"fields": ["timestamp", "temperature"]}'
+                );
+                """
+                % (settings_.db.schema, table_name)
+            )
+        )
+        connection.execute(
+            text(
+                f"""
+                CREATE TABLE {settings_.db.schema}.test_name_environment (
+                    timestamp timestamp without time zone PRIMARY KEY,
+                    temperature double precision NOT NULL
+                );
+                """
+            )
+        )
+        connection.commit()
+
+    yield token, db
 
     drop_schema(db, settings_.db.schema)
 

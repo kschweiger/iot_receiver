@@ -15,11 +15,22 @@ def test_register_invalid_key(test_session, client, header):
     assert response.status_code == 403
 
 
-def test_register(test_session, client):
+def test_register_invalid_endpoint(test_session, client):
+    key, _ = test_session
+    response = client.post(
+        "/register",
+        headers={"access_token": key},
+        json={"endpoint": "bogus_endpoint", "fields": []},
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize("fields", [[], ["timestamp", "temperature"]])
+def test_register(test_session, client, fields):
     key, db = test_session
     response = client.post(
         "/register",
-        json={"endpoint": "environment", "fields": []},
+        json={"endpoint": "environment", "fields": fields},
         headers={"access_token": key},
     )
 
@@ -28,7 +39,7 @@ def test_register(test_session, client):
 
     response = client.post(
         "/register",
-        json={"endpoint": "environment", "fields": []},
+        json={"endpoint": "environment", "fields": fields},
         headers={"access_token": key},
     )
 
@@ -70,3 +81,25 @@ def test_environment(test_environment_session_full, client):
     data = get_data(db, "test_name_environment", time_stamp)
 
     assert not data.empty
+
+
+def test_environment_minimal(test_environment_session_minimal, client):
+    key, db = test_environment_session_minimal
+
+    time_stamp = datetime.now().isoformat()
+    response = client.post(
+        "/environment",
+        json={
+            "timestamp": [time_stamp],
+            "temperature": [1.1],
+        },
+        headers={"access_token": key},
+    )
+
+    assert response.status_code == 200
+
+    data = get_data(db, "test_name_environment", time_stamp)
+
+    assert not data.empty
+
+    assert (data.columns == ["timestamp", "temperature"]).all()
