@@ -106,19 +106,11 @@ docker build -t iot_receiver:$(poetry version -s) .
 
 ## Running the container
 
-### MacOS
-
 ```zsh
 docker run --add-host=host.docker.internal:host-gateway \
            --env IOTRECEIVER_db__host=host.docker.internal \
            -dp 7770:7770 iot_receiver:$(poetry version -s)
 ```
 
-
-### Linux
-
-```zsh
-
-```
-
-
+You can also overwrite other parameters for the database connection using the
+`IOTRECEIVER_db__XXXX` environment variables.
