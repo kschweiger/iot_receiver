@@ -13,7 +13,7 @@ then
 fi
 
 git add CHANGELOG.md pyproject.toml
-git commit -n -m "${bump_msg}"
+git commit -n -m "build: ${bump_msg}"
 git tag ${new_version}
 
 echo "Pushing"

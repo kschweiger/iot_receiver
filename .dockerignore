@@ -1,0 +1,11 @@
+**/.git
+**/.github
+**/.gitignore
+**/.mypy_cache
+**/.pytest_cache
+**/scripts
+**/tests
+**/.coverage
+**/.pre-commit-config.yaml
+**/.DS_Store
+**/release.zsh
