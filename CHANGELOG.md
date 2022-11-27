@@ -1,3 +1,10 @@
+##  (2022-11-27)
+
+
+### Features
+
+* Added Dockerfile ([a2769b6](https://github.com/kschweiger/iot_receiver/commit/a2769b63c6379f32073c7da3c5776350d0b2878c))
+
 ##  (2022-11-26)
 
 
